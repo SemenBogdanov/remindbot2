@@ -1,0 +1,13 @@
+[Unit]
+Description=RemindBot2 Telegram Birthday Reminder
+After=network.target
+
+[Service]
+Type=simple
+User=semen106
+WorkingDirectory=/home/semen106/bot/remind_bot2
+ExecStart=/usr/bin/python3 remindbot2.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 
