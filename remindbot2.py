@@ -105,13 +105,13 @@ def format_birthday_dataframe():
     data = []
 
 
-    logging.info(f"Сегодня: {today}")
-    logging.info(f"Завтра: {tomorrow}")
-    logging.info(f"След. неделя: {next_sunday}")
-    logging.info(f"След. месяц: {next_month}")
+    # logging.info(f"Сегодня: {today}")
+    # logging.info(f"Завтра: {tomorrow}")
+    # logging.info(f"След. неделя: {next_sunday}")
+    # logging.info(f"След. месяц: {next_month}")
 
     for fullname, birthday in birthdays:
-        logging.info(f"Обработка: {fullname} {birthday}")
+        # logging.info(f"Обработка: {fullname} {birthday}")
         if not birthday:
             continue
         # birthday: строка 'DD.MM'
@@ -122,18 +122,18 @@ def format_birthday_dataframe():
             log_info(f"Ошибка преобразования даты для {fullname}: {birthday} ({e})")
             continue
 
-        logging.info(f"Дата рождения: {bday}")   
+        # logging.info(f"Дата рождения: {bday}")   
         wrapped_fullname = wrap_text(fullname, width=20)
         if bday == today:
-            logging.info(f"Сегодня: {fullname} {birthday}")
+            # logging.info(f"Сегодня: {fullname} {birthday}")
             data.append([0, "Сегодня", wrapped_fullname, f"{birthday}"])
         elif bday == tomorrow:
-            logging.info(f"Завтра: {fullname} {birthday}")
+            # logging.info(f"Завтра: {fullname} {birthday}")
             data.append([1, "Завтра", wrapped_fullname, f"{birthday}"])
         elif next_monday <= bday <= next_sunday:
             data.append([2, "На след. неделе", wrapped_fullname, f"{birthday}"])
         elif bday.month == next_month.month:
-            logging.info(f"В след. месяце: {fullname} {birthday}")
+            # logging.info(f"В след. месяце: {fullname} {birthday}")
             data.append([3, "В след. месяце", wrapped_fullname, f"{birthday}"])
 
     if not data:
@@ -147,12 +147,23 @@ def format_birthday_dataframe():
 def send_birthday_reminder(chat_id=CHAT_ID):
     try:
         df = format_birthday_dataframe()
-        fig, ax = plt.subplots(figsize=(10, 0.5 + 0.7*len(df)))
+        # Увеличиваем ширину фигуры, чтобы ФИО не переносилось и не вылетало за пределы ячейки
+        fig_width = 14  # увеличено с 10 до 14
+        fig_height = 0.5 + 0.7 * len(df)
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
         ax.axis('off')
         tbl = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc='center')
-        tbl.auto_set_font_size(True)
-        tbl.set_fontsize(15)
-        tbl.scale(2, 2)
+        tbl.auto_set_font_size(False)
+        tbl.set_fontsize(16)
+        tbl.scale(2.5, 2)  # увеличиваем ширину ячеек
+        # Дополнительно увеличим ширину столбца "ФИО"
+        for (row, col), cell in tbl.get_celld().items():
+            if col == 1:  # "ФИО" обычно второй столбец (0 - Категория, 1 - ФИО, 2 - Дата рождения)
+                cell.set_width(0.45)
+            else:
+                cell.set_width(0.25)
+            cell.set_height(0.15)
+            cell.set_fontsize(16)
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
         buf.seek(0)
