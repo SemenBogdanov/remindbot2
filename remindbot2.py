@@ -90,8 +90,14 @@ def format_birthday_dataframe():
     birthdays = get_birthdays()
     data = []
 
+
+    logging.info(f"Сегодня: {today}")
+    logging.info(f"Завтра: {tomorrow}")
+    logging.info(f"След. неделя: {next_week}")
+    logging.info(f"След. месяц: {next_month}")
+
     for fullname, birthday in birthdays:
-        # logging.info(f"Обработка: {fullname} {birthday}")
+        logging.info(f"Обработка: {fullname} {birthday}")
         if not birthday:
             continue
         # birthday: строка 'DD.MM'
@@ -102,11 +108,7 @@ def format_birthday_dataframe():
             log_info(f"Ошибка преобразования даты для {fullname}: {birthday} ({e})")
             continue
 
-        logging.info(f"Дата рождения: {bday}")
-        logging.info(f"Сегодня: {today}")
-        logging.info(f"Завтра: {tomorrow}")
-        logging.info(f"След. неделя: {next_week}")
-        logging.info(f"След. месяц: {next_month}")
+        logging.info(f"Дата рождения: {bday}")   
         if bday == today:
             logging.info(f"Сегодня: {fullname} {birthday}")
             data.append(["Сегодня", fullname, f"{birthday}"])
