@@ -9,6 +9,7 @@ import io
 import configparser
 import logging
 import os
+import inspect
 
 # Настройка логгирования
 LOG_PATH = os.path.join(os.path.dirname(__file__), 'bot.log')
@@ -20,6 +21,10 @@ logging.basicConfig(
         logging.StreamHandler()
     ]
 )
+
+def log_info(msg):
+    frame = inspect.currentframe().f_back
+    logging.info(f"[{frame.f_code.co_name}:{frame.f_lineno}] {msg}")
 
 # Чтение конфига
 CONFIG_PATH = '/home/semen106/bot/my_global_config.cfg'
@@ -88,15 +93,21 @@ def format_birthday_dataframe():
     for fullname, birthday in birthdays:
         if not birthday:
             continue
-        bday = birthday.replace(year=today.year)
+        # birthday: строка 'DD.MM'
+        try:
+            day, month = map(int, birthday.split('.'))
+            bday = datetime(today.year, month, day).date()
+        except Exception as e:
+            log_info(f"Ошибка преобразования даты для {fullname}: {birthday} ({e})")
+            continue
         if bday == today:
-            data.append(["Сегодня", fullname, birthday.strftime('%d.%m.%Y')])
+            data.append(["Сегодня", fullname, f"{birthday}"])
         elif bday == tomorrow:
-            data.append(["Завтра", fullname, birthday.strftime('%d.%m.%Y')])
+            data.append(["Завтра", fullname, f"{birthday}"])
         elif today < bday <= next_week:
-            data.append(["На след. неделе", fullname, birthday.strftime('%d.%m.%Y')])
+            data.append(["На след. неделе", fullname, f"{birthday}"])
         elif bday.month == next_month.month:
-            data.append(["В след. месяце", fullname, birthday.strftime('%d.%m.%Y')])
+            data.append(["В след. месяце", fullname, f"{birthday}"])
 
     if not data:
         data.append(["-", "Нет ближайших дней рождений", "-"])
@@ -125,7 +136,7 @@ def send_birthday_reminder(chat_id=CHAT_ID):
 # Обработка команды /birthdays и любого текстового сообщения
 @bot.message_handler(commands=['birthdays'])
 def handle_birthdays_command(message):
-    send_birthday_reminder(chat_id=message.chat.id)
+    send_birthday_reminder(chat_id=message.chat.id) 
 
 @bot.message_handler(func=lambda message: True)
 def handle_any_message(message):
