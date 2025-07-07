@@ -69,7 +69,7 @@ def get_birthdays():
             SELECT DISTINCT ON (fullname) fullname, birthday
             FROM nsi_data.dict_portal_ac_employees_tb_form
             where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
-            and department ilike any(array['%перационная%','%проект%','%мультиммед%','%руковод%','центр'])
+            and department ilike any(array['%перационная%','%роект%','%мультимед%','%руковод%'])
             ORDER BY fullname
         """)
         rows = cur.fetchall()
@@ -146,7 +146,8 @@ def handle_any_message(message):
 def scheduler():
     while True:
         now = datetime.now()
-        times = ["06:30", "19:00"]
+        times = ["06:30", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", 
+                 "16:30", "17:00", "17:30", "18:00", "18:30", "19:00"]
         for t in times:
             target = now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0)
             if now > target:
