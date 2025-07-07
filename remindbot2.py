@@ -84,7 +84,17 @@ def get_birthdays():
 def format_birthday_dataframe():
     today = datetime.now().date()
     tomorrow = today + timedelta(days=1)
-    next_week = today + timedelta(days=7)
+    # Границы следующей недели
+    # Пример работы этих строк:
+    # today = datetime(2024, 6, 7).date()  # допустим, сегодня пятница (weekday() == 4)
+    # days_until_next_monday = (7 - today.weekday()) % 7 or 7
+    # days_until_next_monday = (7 - 4) % 7 or 7 = 3
+    # next_monday = today + timedelta(days=3)  # будет понедельник, 10 июня 2024
+    # next_sunday = next_monday + timedelta(days=6)  # будет воскресенье, 16 июня 2024
+
+    days_until_next_monday = (7 - today.weekday()) % 7 or 7
+    next_monday = today + timedelta(days=days_until_next_monday)
+    next_sunday = next_monday + timedelta(days=6)
     next_month = (today.replace(day=1) + timedelta(days=32)).replace(day=1)
 
     birthdays = get_birthdays()
@@ -115,8 +125,7 @@ def format_birthday_dataframe():
         elif bday == tomorrow:
             logging.info(f"Завтра: {fullname} {birthday}")
             data.append(["Завтра", fullname, f"{birthday}"])
-        elif today < bday <= next_week:
-            logging.info(f"На след. неделе: {fullname} {birthday}")
+        elif next_monday <= bday <= next_sunday:
             data.append(["На след. неделе", fullname, f"{birthday}"])
         elif bday.month == next_month.month:
             logging.info(f"В след. месяце: {fullname} {birthday}")
