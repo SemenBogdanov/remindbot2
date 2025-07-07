@@ -35,7 +35,17 @@ DB_PASSWORD = config['HOSTER_KC_DB_LOCAL']['password']
 TELEGRAM_TOKEN = config['REMINDBOT2']['remindbot_token']
 BIRTHDAY_CHAT_WITH_NIKA = 'birthday_chat_with_nika'  # Замените на нужный chat_id
 
+ADMIN_CHAT_ID = int(config['REMINDBOT2']['admin_chat_id'])  # id админа из конфига
+CHAT_ID = int(config['REMINDBOT2']['birthday_chat_with_nika'])  # id основного чата из конфига
+
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
+
+# Приветственное сообщение админу при запуске
+try:
+    bot.send_message(ADMIN_CHAT_ID, 'Бот напоминалка успешно запущен!')
+    logging.info('Приветственное сообщение админу отправлено.')
+except Exception as e:
+    logging.error(f'Ошибка при отправке приветственного сообщения админу: {e}')
 
 def get_birthdays():
     try:
@@ -94,7 +104,7 @@ def format_birthday_dataframe():
     df = pd.DataFrame(data, columns=["Категория", "ФИО", "Дата рождения"])
     return df
 
-def send_birthday_reminder():
+def send_birthday_reminder(chat_id=CHAT_ID):
     try:
         df = format_birthday_dataframe()
         fig, ax = plt.subplots(figsize=(8, 0.5 + 0.5*len(df)))
@@ -107,10 +117,20 @@ def send_birthday_reminder():
         plt.savefig(buf, format='png', bbox_inches='tight', dpi=200)
         buf.seek(0)
         plt.close(fig)
-        bot.send_photo(CHAT_ID, buf)
-        logging.info('Напоминание успешно отправлено в чат.')
+        bot.send_photo(chat_id, buf)
+        logging.info(f'Напоминание успешно отправлено в чат {chat_id}.')
     except Exception as e:
         logging.error(f'Ошибка при отправке напоминания: {e}')
+
+# Обработка команды /birthdays и любого текстового сообщения
+@bot.message_handler(commands=['birthdays'])
+def handle_birthdays_command(message):
+    send_birthday_reminder(chat_id=message.chat.id)
+
+@bot.message_handler(func=lambda message: True)
+def handle_any_message(message):
+    if message.chat.id == ADMIN_CHAT_ID:
+        send_birthday_reminder(chat_id=message.chat.id)
 
 def scheduler():
     while True:
