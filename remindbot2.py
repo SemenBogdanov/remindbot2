@@ -101,12 +101,16 @@ def format_birthday_dataframe():
             log_info(f"Ошибка преобразования даты для {fullname}: {birthday} ({e})")
             continue
         if bday == today:
+            logging.info(f"Сегодня: {fullname} {birthday}")
             data.append(["Сегодня", fullname, f"{birthday}"])
         elif bday == tomorrow:
+            logging.info(f"Завтра: {fullname} {birthday}")
             data.append(["Завтра", fullname, f"{birthday}"])
         elif today < bday <= next_week:
+            logging.info(f"На след. неделе: {fullname} {birthday}")
             data.append(["На след. неделе", fullname, f"{birthday}"])
         elif bday.month == next_month.month:
+            logging.info(f"В след. месяце: {fullname} {birthday}")
             data.append(["В след. месяце", fullname, f"{birthday}"])
 
     if not data:
