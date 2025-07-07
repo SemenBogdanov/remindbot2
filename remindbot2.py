@@ -113,6 +113,7 @@ def format_birthday_dataframe():
         data.append(["-", "Нет ближайших дней рождений", "-"])
 
     df = pd.DataFrame(data, columns=["Категория", "ФИО", "Дата рождения"])
+    logging.info(f"Данные для отправки: {df}")
     return df
 
 def send_birthday_reminder(chat_id=CHAT_ID):
