@@ -123,7 +123,7 @@ def format_birthday_dataframe():
             continue
 
         # logging.info(f"Дата рождения: {bday}")   
-        wrapped_fullname = wrap_text(fullname, width=20)
+        wrapped_fullname = wrap_text(fullname, width=50)
         if bday == today:
             # logging.info(f"Сегодня: {fullname} {birthday}")
             data.append([0, "Сегодня", wrapped_fullname, f"{birthday}"])
@@ -147,26 +147,23 @@ def format_birthday_dataframe():
 def send_birthday_reminder(chat_id=CHAT_ID):
     try:
         df = format_birthday_dataframe()
-        # Увеличиваем ширину фигуры и ячеек, чтобы ФИО не переносилось на вторую строку
-        fig_width = 18  # увеличено для предотвращения переноса ФИО
+        # Увеличиваем ширину фигуры, чтобы ФИО не переносилось и не вылетало за пределы ячейки
+        fig_width = 14  # увеличено с 10 до 14
         fig_height = 0.5 + 0.7 * len(df)
         fig, ax = plt.subplots(figsize=(fig_width, fig_height))
         ax.axis('off')
         tbl = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc='center')
         tbl.auto_set_font_size(False)
         tbl.set_fontsize(16)
-        tbl.scale(3.5, 2)  # увеличиваем ширину ячеек ещё больше
-
-        # Увеличиваем ширину столбца "ФИО" для предотвращения переноса
+        tbl.scale(2.5, 2)  # увеличиваем ширину ячеек
+        # Дополнительно увеличим ширину столбца "ФИО"
         for (row, col), cell in tbl.get_celld().items():
             if col == 1:  # "ФИО" обычно второй столбец (0 - Категория, 1 - ФИО, 2 - Дата рождения)
-                cell.set_width(0.65)  # увеличено для ФИО
+                cell.set_width(0.45)
             else:
                 cell.set_width(0.25)
             cell.set_height(0.15)
             cell.set_fontsize(16)
-            # Отключаем автоматический перенос текста (если вдруг wrap_text где-то применялся)
-            cell.get_text().set_wrap(False)
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', dpi=300)
         buf.seek(0)
