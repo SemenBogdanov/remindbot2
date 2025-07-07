@@ -81,6 +81,10 @@ def get_birthdays():
         logging.error(f'Ошибка при работе с базой данных: {e}')
         return []
 
+def wrap_text(text, width=20):
+    # Перенос строки каждые width символов
+    return '\n'.join([text[i:i+width] for i in range(0, len(text), width)])
+
 def format_birthday_dataframe():
     today = datetime.now().date()
     tomorrow = today + timedelta(days=1)
@@ -119,34 +123,36 @@ def format_birthday_dataframe():
             continue
 
         logging.info(f"Дата рождения: {bday}")   
+        wrapped_fullname = wrap_text(fullname, width=20)
         if bday == today:
             logging.info(f"Сегодня: {fullname} {birthday}")
-            data.append(["Сегодня", fullname, f"{birthday}"])
+            data.append([0, "Сегодня", wrapped_fullname, f"{birthday}"])
         elif bday == tomorrow:
             logging.info(f"Завтра: {fullname} {birthday}")
-            data.append(["Завтра", fullname, f"{birthday}"])
+            data.append([1, "Завтра", wrapped_fullname, f"{birthday}"])
         elif next_monday <= bday <= next_sunday:
-            data.append(["На след. неделе", fullname, f"{birthday}"])
+            data.append([2, "На след. неделе", wrapped_fullname, f"{birthday}"])
         elif bday.month == next_month.month:
             logging.info(f"В след. месяце: {fullname} {birthday}")
-            data.append(["В след. месяце", fullname, f"{birthday}"])
+            data.append([3, "В след. месяце", wrapped_fullname, f"{birthday}"])
 
     if not data:
-        data.append(["-", "Нет ближайших дней рождений", "-"])
+        data.append([4, "-", "Нет ближайших дней рождений", "-"])
 
-    df = pd.DataFrame(data, columns=["Категория", "ФИО", "Дата рождения"])
+    df = pd.DataFrame(data, columns=["sort", "Категория", "ФИО", "Дата рождения"])
+    df = df.sort_values(by="sort").drop(columns=["sort"])
     logging.info(f"Данные для отправки: {df}")
     return df
 
 def send_birthday_reminder(chat_id=CHAT_ID):
     try:
         df = format_birthday_dataframe()
-        fig, ax = plt.subplots(figsize=(8, 0.5 + 0.5*len(df)))
+        fig, ax = plt.subplots(figsize=(10, 0.5 + 0.7*len(df)))
         ax.axis('off')
         tbl = ax.table(cellText=df.values, colLabels=df.columns, loc='center', cellLoc='center')
         tbl.auto_set_font_size(False)
-        tbl.set_fontsize(12)
-        tbl.scale(1, 1.5)
+        tbl.set_fontsize(10)
+        tbl.scale(1.5, 1.5)
         buf = io.BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', dpi=200)
         buf.seek(0)
