@@ -103,7 +103,7 @@ def format_birthday_dataframe():
 
     logging.info(f"Сегодня: {today}")
     logging.info(f"Завтра: {tomorrow}")
-    logging.info(f"След. неделя: {next_week}")
+    logging.info(f"След. неделя: {next_sunday}")
     logging.info(f"След. месяц: {next_month}")
 
     for fullname, birthday in birthdays:
