@@ -91,6 +91,7 @@ def format_birthday_dataframe():
     data = []
 
     for fullname, birthday in birthdays:
+        logging.info(f"Обработка: {fullname} {birthday}")
         if not birthday:
             continue
         # birthday: строка 'DD.MM'
