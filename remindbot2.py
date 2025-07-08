@@ -185,19 +185,27 @@ def handle_any_message(message):
         send_birthday_reminder(chat_id=message.chat.id)
 
 def scheduler():
+    times = ["03:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", 
+             "12:00", "13:30", "14:00", "15:00", "16:00", "17:00", "18:00"]
     while True:
         now = datetime.now()
-        # Время на сервере отличается от времени на клиенте на 3 часа
-        times = ["03:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", 
-                 "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"]
-        for t in times:
-            target = now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0)
-            if now > target:
-                target += timedelta(days=1)
-            wait_seconds = (target - now).total_seconds()
-            logging.info(f'Ожидание до следующей отправки: {wait_seconds/60:.1f} минут.')
-            time.sleep(wait_seconds)
-            send_birthday_reminder()
+        logging.info(f"Текущее время: {now}")
+        # Список будущих target на сегодня
+        future_targets = [
+            now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0)
+            for t in times
+            if now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0) > now
+        ]
+        if future_targets:
+            target = min(future_targets)
+        else:
+            # Все target на сегодня прошли, берем самое раннее на завтра
+            t_earliest = times[0]
+            target = (now + timedelta(days=1)).replace(hour=int(t_earliest[:2]), minute=int(t_earliest[3:]), second=0, microsecond=0)
+        wait_seconds = (target - now).total_seconds()
+        logging.info(f'Ожидание до следующей отправки: {wait_seconds/60:.1f} минут.')
+        time.sleep(wait_seconds)
+        send_birthday_reminder()
 
 
 # Основной цикл запуска бота
@@ -208,7 +216,7 @@ def run_bot():
             thread = threading.Thread(target=scheduler)
             thread.start()
             # Главный вызов, который мы защищаем
-            bot.polling(non_stop=True, interval=0)
+            bot.polling(none_stop=True, interval=0)
 
         # Ловим ошибку таймаута или любую другую ошибку сети
         except requests.exceptions.RequestException as e:
