@@ -1,3 +1,4 @@
+import requests
 import telebot
 import psycopg2
 from datetime import datetime, timedelta
@@ -186,8 +187,9 @@ def handle_any_message(message):
 def scheduler():
     while True:
         now = datetime.now()
-        times = ["06:30", "13:30", "14:00", "14:30", "15:00", "15:30", "16:00", 
-                 "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30"]
+        # Время на сервере отличается от времени на клиенте на 3 часа
+        times = ["03:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", 
+                 "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"]
         for t in times:
             target = now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0)
             if now > target:
@@ -197,8 +199,27 @@ def scheduler():
             time.sleep(wait_seconds)
             send_birthday_reminder()
 
-if __name__ == "__main__":
-    logging.info('Бот запущен.')
-    thread = threading.Thread(target=scheduler)
-    thread.start()
-    bot.polling(none_stop=True) 
+
+# Основной цикл запуска бота
+def run_bot():
+    while True:
+        try:
+            logging.info('Бот запущен.')
+            thread = threading.Thread(target=scheduler)
+            thread.start()
+            # Главный вызов, который мы защищаем
+            bot.polling(non_stop=True, interval=0)
+
+        # Ловим ошибку таймаута или любую другую ошибку сети
+        except requests.exceptions.RequestException as e:
+            print(f"Ошибка сети: {e}. Перезапуск через 15 секунд.")
+            time.sleep(15) # Даем сети "отдохнуть"
+        
+        # Ловим любые другие непредвиденные ошибки
+        except Exception as e:
+            print(f"Произошла непредвиденная ошибка: {e}. Перезапуск через 30 секунд.")
+            time.sleep(30)
+
+
+if __name__ == '__main__':
+    run_bot()
