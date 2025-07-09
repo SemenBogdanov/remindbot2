@@ -210,20 +210,16 @@ def scheduler():
 
 # Основной цикл запуска бота
 def run_bot():
+    # Запускаем scheduler только один раз
+    thread = threading.Thread(target=scheduler, daemon=True)
+    thread.start()
     while True:
         try:
             logging.info('Бот запущен.')
-            thread = threading.Thread(target=scheduler)
-            thread.start()
-            # Главный вызов, который мы защищаем
             bot.polling(none_stop=True, interval=0)
-
-        # Ловим ошибку таймаута или любую другую ошибку сети
         except requests.exceptions.RequestException as e:
             print(f"Ошибка сети: {e}. Перезапуск через 15 секунд.")
-            time.sleep(15) # Даем сети "отдохнуть"
-        
-        # Ловим любые другие непредвиденные ошибки
+            time.sleep(15)
         except Exception as e:
             print(f"Произошла непредвиденная ошибка: {e}. Перезапуск через 30 секунд.")
             time.sleep(30)
