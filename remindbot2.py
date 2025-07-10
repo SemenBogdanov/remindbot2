@@ -185,8 +185,7 @@ def handle_any_message(message):
         send_birthday_reminder(chat_id=message.chat.id)
 
 def scheduler():
-    times = ["03:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", 
-             "12:00", "13:30", "14:00", "15:00", "16:00", "17:00", "18:00"]
+    times = ["03:30", "18:00"]
     while True:
         now = datetime.now()
         logging.info(f"Текущее время: {now}")
