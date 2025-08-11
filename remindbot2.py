@@ -147,7 +147,7 @@ def send_next_5_birthdays(chat_id):
             bot.send_message(chat_id, "Нет данных о ближайших днях рождения.")
             return
 
-        message = "🎂 Следующие 5 дней рождений:\n"
+        message = "🎂 Следующие 5 дней рождений:\n\n"
         current_days = None
 
         # Группируем дни рождения по категориям
@@ -165,7 +165,7 @@ def send_next_5_birthdays(chat_id):
         
         # Формируем сообщение по блокам
         if today_birthdays:
-            message += "\n"
+
             message += "🎉 Сегодня:\n"
             for fullname, birthday in today_birthdays:
                 message += f" - {fullname} ({birthday})\n"
@@ -178,7 +178,7 @@ def send_next_5_birthdays(chat_id):
             message += "\n"
         
         if later_birthdays:
-            message += "📅 Позже:\n"
+            message += "📅 Уже скоро:\n"
             for fullname, birthday, days_until in later_birthdays:
                 message += f" - {fullname} ({birthday}) - через {days_until} дней\n"
             message += "\n"
