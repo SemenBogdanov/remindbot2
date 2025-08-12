@@ -77,20 +77,30 @@ def get_last_sync_date():
         logging.error(f'Ошибка при получении даты последней синхронизации: {e}')
         return "Неизвестно"
 
-def get_next_5_birthdays():
+def get_next_5_birthdays(all_employees=False):
     try:
         logging.info('Подключение к базе данных для получения следующих 5 дней рождений...')
         conn = psycopg2.connect(**db_creds)
         cur = conn.cursor()
-        cur.execute("""
-            --Следующие 5 дней рождений сотрудников
-            SELECT DISTINCT ON (fullname) fullname, birthday
-            FROM nsi_data.dict_portal_ac_employees_tb_form
-            where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
-            and department ilike any(array['%перационная%','%роект%','%мультимед%','%руковод%'])
-            and birthday is not null
-            ORDER BY fullname
-        """)
+        if all_employees:
+            # Получаем всех сотрудников, независимо от подразделения
+            cur.execute("""
+                --Следующие 5 дней рождений всех сотрудников
+                SELECT DISTINCT ON (fullname) fullname, birthday
+                FROM nsi_data.dict_portal_ac_employees_tb_form
+                where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
+                ORDER BY fullname
+            """)
+        else:
+            cur.execute("""
+                --Следующие 5 дней рождений сотрудников
+                SELECT DISTINCT ON (fullname) fullname, birthday
+                FROM nsi_data.dict_portal_ac_employees_tb_form
+                where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
+                and department ilike any(array['%перационная%','%роект%','%мультимед%','%руковод%'])
+                and birthday is not null
+                ORDER BY fullname
+            """)
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -140,9 +150,9 @@ def get_next_5_birthdays():
         logging.error(f'Ошибка при получении следующих дней рождений: {e}')
         return []
 
-def send_next_5_birthdays(chat_id):
+def send_next_5_birthdays(chat_id, all_employees=False):
     try:
-        birthdays = get_next_5_birthdays()
+        birthdays = get_next_5_birthdays(all_employees=all_employees)
         if not birthdays:
             bot.send_message(chat_id, "Нет данных о ближайших днях рождения.")
             return
@@ -193,7 +203,7 @@ def send_next_5_birthdays(chat_id):
         bot.send_message(chat_id, "Произошла ошибка при получении данных о днях рождения.")
 
 
-def get_birthdays():
+def get_birthdays(all_employees=False):
     try:
         logging.info('Подключение к базе данных...')
         conn = psycopg2.connect(
@@ -206,14 +216,24 @@ def get_birthdays():
             # connect_timeout=CONNECT_TIMEOUT
         )
         cur = conn.cursor()
-        cur.execute("""
-            --Дни рождения сотрудников
-            SELECT DISTINCT ON (fullname) fullname, birthday
-            FROM nsi_data.dict_portal_ac_employees_tb_form
-            where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
-            and department ilike any(array['%перационная%','%роект%','%мультимед%','%руковод%'])
-            ORDER BY fullname
-        """)
+        if all_employees:
+            # Получаем всех сотрудников, независимо от статуса
+            cur.execute("""
+                --Дни рождения всех сотрудников
+                SELECT DISTINCT ON (fullname) fullname, birthday
+                FROM nsi_data.dict_portal_ac_employees_tb_form
+                where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
+                ORDER BY fullname
+            """)
+        else:
+            cur.execute("""
+                --Дни рождения сотрудников
+                SELECT DISTINCT ON (fullname) fullname, birthday
+                FROM nsi_data.dict_portal_ac_employees_tb_form
+                where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
+                and department ilike any(array['%перационная%','%роект%','%мультимед%','%руковод%'])
+                ORDER BY fullname
+            """)
         rows = cur.fetchall()
         cur.close()
         conn.close()
@@ -321,10 +341,18 @@ def send_birthday_reminder(chat_id=CHAT_ID):
 def handle_birthdays_command(message):
     send_birthday_reminder(chat_id=message.chat.id) 
 
+
 @bot.message_handler(commands=['next5'])
 def handle_next5_command(message: Message):
     if message.from_user.id == ADMIN_CHAT_ID:
         send_next_5_birthdays(chat_id=message.chat.id)
+    else:
+        bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")@bot.message_handler(commands=['next5'])
+
+@bot.message_handler(commands=['next5all'])
+def handle_next5all_command(message: Message):
+    if message.from_user.id == ADMIN_CHAT_ID:
+        send_next_5_birthdays(chat_id=message.chat.id, all_employees=True)
     else:
         bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
@@ -339,6 +367,7 @@ def scheduler():
         logging.info('Запуск планировщика...')
         # Получаем текущее время и определяем ближайший target
         now = datetime.now()
+        print(now)
         logging.info(f"Текущее время: {now}")
         # Список будущих target на сегодня
         future_targets = [
@@ -348,17 +377,20 @@ def scheduler():
             for t in times
             if now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0) > now
         ]
+        print(f"Будущие target на сегодня: {future_targets}")
         if future_targets:
             target = min(future_targets)
         else:
             # Все target на сегодня прошли, берем самое раннее на завтра
             t_earliest = times[0]
             target = (now + timedelta(days=1)).replace(hour=int(t_earliest[:2]), minute=int(t_earliest[3:]), second=0, microsecond=0)
+            print(target)
         wait_seconds = (target - now).total_seconds()
         logging.info(f'Ожидание до следующей отправки: {wait_seconds/60:.1f} минут.')
         time.sleep(wait_seconds)
-        send_birthday_reminder()
+        # send_birthday_reminder()
         send_next_5_birthdays(CHAT_ID)
+        send_next_5_birthdays(CHAT_ID, all_employees=True)
 
 
 # Основной цикл запуска бота
