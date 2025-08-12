@@ -557,11 +557,6 @@ def handle_vacationsall_command(message: Message):
     else:
         bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
-@bot.message_handler(func=lambda message: True)
-def handle_any_message(message):
-    if message.chat.id == ADMIN_CHAT_ID:
-        send_birthday_reminder(chat_id=message.chat.id)
-
 def scheduler():
     times = ["03:30"]
     while True:
