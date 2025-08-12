@@ -153,6 +153,186 @@ def get_next_5_birthdays(all_employees=False):
         logging.error(f'Ошибка при получении следующих дней рождений: {e}')
         return []
 
+def get_vacations(all_employees=False):
+    """Получение данных об отпусках сотрудников из базы данных"""
+    try:
+        logging.info('Подключение к базе данных для получения данных об отпусках...')
+        conn = psycopg2.connect(**db_creds)
+        cur = conn.cursor()
+        
+        if all_employees:
+            # Получаем отпуска всех сотрудников
+            cur.execute("""
+                SELECT DISTINCT ON (fullname,vac_date_start) fullname, vac_date_start, vac_date_end
+                FROM nsi_data.dict_portal_ac_employees_tb_form
+                WHERE status is true 
+                AND "current_timestamp" = (SELECT "current_timestamp" cs FROM nsi_data.dict_portal_ac_employees_tb_form ORDER BY cs DESC LIMIT 1)
+                AND vac_date_start IS NOT NULL
+                AND vac_date_end IS NOT NULL
+                ORDER BY fullname
+            """)
+        else:
+            # Получаем отпуска сотрудников определенных подразделений
+            cur.execute("""
+                SELECT DISTINCT ON (fullname,vac_date_start) fullname, vac_date_start, vac_date_end
+                FROM nsi_data.dict_portal_ac_employees_tb_form
+                WHERE status is true 
+                AND "current_timestamp" = (SELECT "current_timestamp" cs FROM nsi_data.dict_portal_ac_employees_tb_form ORDER BY cs DESC LIMIT 1)
+                AND department ILIKE ANY(ARRAY['%перационная%','%роект%','%мультимед%','%руковод%'])
+                AND vac_date_start IS NOT NULL
+                AND vac_date_end IS NOT NULL
+                ORDER BY fullname
+            """)
+        
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        logging.info(f'Получено {len(rows)} записей об отпусках.')
+        return rows
+    except Exception as e:
+        logging.error(f'Ошибка при получении данных об отпусках: {e}')
+        return []
+
+def get_current_and_upcoming_vacations(all_employees=False):
+    """Получение текущих и предстоящих отпусков"""
+    try:
+        vacations = get_vacations(all_employees=all_employees)
+        if not vacations:
+            return []
+        
+        today = datetime.now().date()
+        vacation_data = []
+        
+        for fullname, vacation_start, vacation_end in vacations:
+            try:
+                # Преобразуем строки дат в объекты date
+                if isinstance(vacation_start, str):
+                    start_date = datetime.strptime(vacation_start, '%d.%m.%Y').date()
+                else:
+                    start_date = vacation_start
+                    
+                if isinstance(vacation_end, str):
+                    end_date = datetime.strptime(vacation_end, '%d.%m.%Y').date()
+                else:
+                    end_date = vacation_end
+                
+                # Проверяем, актуален ли отпуск (текущий или предстоящий в течение 30 дней)
+                days_until_start = (start_date - today).days
+                days_until_end = (end_date - today).days
+                
+                if days_until_end >= 0 and days_until_start <= 30:  # Отпуск актуален
+                    vacation_data.append((fullname, start_date, end_date, days_until_start))
+                    
+            except Exception as e:
+                log_info(f"Ошибка преобразования дат отпуска для {fullname}: {e}")
+                continue
+        
+        # Сортируем по дате начала отпуска
+        vacation_data.sort(key=lambda x: x[1])
+        
+        logging.info(f'Получено {len(vacation_data)} актуальных отпусков.')
+        return vacation_data
+        
+    except Exception as e:
+        logging.error(f'Ошибка при обработке данных об отпусках: {e}')
+        return []
+
+def send_vacation_notifications(chat_id, all_employees=False):
+    """Отправка уведомлений об отпусках в чат"""
+    try:
+        vacations = get_current_and_upcoming_vacations(all_employees=all_employees)
+        if not vacations:
+            bot.send_message(chat_id, "Нет данных о текущих и предстоящих отпусках.")
+            return
+
+        if not all_employees:
+            message = f"{progroup_html_icon} <b>ОТПУСКА PRO</b>ГРУППЫ:\n\n"
+        else:
+            message = f"{bunker_html_icon} ОТПУСКА БУНКЕРА:\n\n"
+
+        # Группируем отпуска по категориям
+        current_vacations = []
+        starting_soon = []
+        upcoming_vacations = []
+
+        today = datetime.now().date()
+
+        for fullname, start_date, end_date, days_until_start in vacations:
+            if days_until_start <= 0 and (end_date - today).days >= 0:
+                # Текущий отпуск
+                days_left = (end_date - today).days + 1
+                current_vacations.append((fullname, start_date, end_date, days_left))
+            elif days_until_start <= 3:
+                # Начинается в ближайшие 3 дня
+                starting_soon.append((fullname, start_date, end_date, days_until_start))
+            else:
+                # Предстоящие отпуска
+                upcoming_vacations.append((fullname, start_date, end_date, days_until_start))
+
+        # Формируем сообщение
+        if current_vacations:
+            message += "🏖️ <b>В отпуске сейчас:</b>\n"
+            # Сортируем по остатку дней от меньшего к большему
+            current_vacations.sort(key=lambda x: x[3])  # x[3] - это days_left
+            for fullname, start_date, end_date, days_left in current_vacations:
+                # Извлекаем фамилию и инициалы
+                name_parts = fullname.split()
+                if len(name_parts) >= 3:
+                    surname = name_parts[0]
+                    first_initial = name_parts[1][0] if name_parts[1] else ""
+                    second_initial = name_parts[2][0] if name_parts[2] else ""
+                    formatted_name = f"{surname} {first_initial}.{second_initial}."
+                else:
+                    formatted_name = fullname
+                
+                if days_left > 0:
+                    message += f"  {start_date.strftime('%d.%m')}-{end_date.strftime('%d.%m')}, ост: {days_left} дн., {formatted_name}\n"
+                else:
+                    message += f"  {start_date.strftime('%d.%m')}-{end_date.strftime('%d.%m')}, ост: последний день, {formatted_name}\n"
+            message += "\n"
+
+        if starting_soon:
+            message += "🎒 <b>Уходят в отпуск скоро:</b>\n"
+            for fullname, start_date, end_date, days_until_start in starting_soon:
+                message += f"  {fullname}\n"
+                message += f"     📅 {start_date.strftime('%d.%m')} - {end_date.strftime('%d.%m')}\n"
+                if days_until_start == 0:
+                    message += f"     🚀 начинается сегодня\n"
+                elif days_until_start == 1:
+                    message += f"     🚀 начинается завтра\n"
+                else:
+                    message += f"     🚀 через {days_until_start} дн.\n"
+            message += "\n"
+
+        if upcoming_vacations[:5]:  # Показываем только первые 5
+            message += "📋 <b>Планируемые отпуска:</b>\n"
+            for fullname, start_date, end_date, days_until_start in upcoming_vacations[:5]:
+                # Извлекаем фамилию и инициалы
+                name_parts = fullname.split()
+                if len(name_parts) >= 3:
+                    surname = name_parts[0]
+                    first_initial = name_parts[1][0] if name_parts[1] else ""
+                    second_initial = name_parts[2][0] if name_parts[2] else ""
+                    formatted_name = f"{surname} {first_initial}.{second_initial}."
+                else:
+                    formatted_name = fullname
+        
+                message += f"  {start_date.strftime('%d.%m')}-{end_date.strftime('%d.%m')}, через: {days_until_start} дн., {formatted_name}\n"
+            if len(upcoming_vacations) > 5:
+                message += f"     ... и еще {len(upcoming_vacations) - 5} отпусков\n"
+            message += "\n"
+
+        last_sync = get_last_sync_date()
+        message += f"📊 Данные актуальны на: {last_sync}"
+
+        bot.send_message(chat_id, message, parse_mode='html')
+        logging.info(f'Уведомления об отпусках отправлены в чат {chat_id}.')
+
+    except Exception as e:
+        logging.error(f'Ошибка при отправке уведомлений об отпусках: {e}')
+        bot.send_message(chat_id, "Произошла ошибка при получении данных об отпусках.")
+
 def send_next_5_birthdays(chat_id, all_employees=False):
     try:
         birthdays = get_next_5_birthdays(all_employees=all_employees)
@@ -354,12 +534,26 @@ def handle_next5_command(message: Message):
     if message.from_user.id == ADMIN_CHAT_ID:
         send_next_5_birthdays(chat_id=message.chat.id)
     else:
-        bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")@bot.message_handler(commands=['next5'])
+        bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
 @bot.message_handler(commands=['next5all'])
 def handle_next5all_command(message: Message):
     if message.from_user.id == ADMIN_CHAT_ID:
         send_next_5_birthdays(chat_id=message.chat.id, all_employees=True)
+    else:
+        bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
+        
+@bot.message_handler(commands=['vacations'])
+def handle_vacations_command(message: Message):
+    if message.from_user.id == ADMIN_CHAT_ID:
+        send_vacation_notifications(chat_id=message.chat.id)
+    else:
+        bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
+
+@bot.message_handler(commands=['vacationsall'])
+def handle_vacationsall_command(message: Message):
+    if message.from_user.id == ADMIN_CHAT_ID:
+        send_vacation_notifications(chat_id=message.chat.id, all_employees=True)
     else:
         bot.send_message(message.chat.id, "У вас нет прав для выполнения этой команды.")
 
@@ -395,6 +589,7 @@ def scheduler():
         # send_birthday_reminder()
         send_next_5_birthdays(CHAT_ID)
         send_next_5_birthdays(CHAT_ID, all_employees=True)
+        send_vacation_notifications(CHAT_ID)
 
 
 # Основной цикл запуска бота
