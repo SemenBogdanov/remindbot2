@@ -46,6 +46,9 @@ BIRTHDAY_CHAT_WITH_NIKA = 'birthday_chat_with_nika'  # Замените на н�
 ADMIN_CHAT_ID = int(config['REMINDBOT2']['admin_chat_id'])  # id админа из конфига
 CHAT_ID = int(config['REMINDBOT2']['birthday_chat_with_nika'])  # id основного чата из конфига
 
+progroup_html_icon = f'<tg-emoji emoji-id="5249481442043393850">🦆</tg-emoji>'
+bunker_html_icon = f'<tg-emoji emoji-id="5249462587136966291">🧟‍♂️</tg-emoji>'
+
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
 # Приветственное сообщение админу при запуске
@@ -157,7 +160,10 @@ def send_next_5_birthdays(chat_id, all_employees=False):
             bot.send_message(chat_id, "Нет данных о ближайших днях рождения.")
             return
 
-        message = "🎂 Следующие 5 дней рождений:\n\n"
+        if not all_employees:
+            message = f"{progroup_html_icon} <b>PRO</b>ГРУППА:\n\n"
+        else:
+            message = f"{bunker_html_icon} БУНКЕР:\n\n"
         current_days = None
 
         # Группируем дни рождения по категориям
@@ -178,28 +184,29 @@ def send_next_5_birthdays(chat_id, all_employees=False):
 
             message += "🎉 Сегодня:\n"
             for fullname, birthday in today_birthdays:
-                message += f" - {fullname} ({birthday})\n"
+                message += f" {fullname} ({birthday})\n"
             message += "\n"
         
         if tomorrow_birthdays:
             message += "🎈 Завтра:\n"
             for fullname, birthday in tomorrow_birthdays:
-                message += f" - {fullname} ({birthday})\n"
+                message += f" {fullname} ({birthday})\n"
             message += "\n"
         
         if later_birthdays:
             message += "📅 Уже скоро:\n"
             for fullname, birthday, days_until in later_birthdays:
-                message += f" - {fullname} ({birthday}) - через {days_until} дней\n"
+                message += f"  {fullname} ({birthday})  через {days_until} дней\n"
             message += "\n"
 
         last_sync = get_last_sync_date()
         message += f"📊 Данные актуальны на: {last_sync}"
-        bot.send_message(chat_id, message)
+        bot.send_message(chat_id, message, parse_mode='html')
         logging.info(f'Список следующих 5 дней рождений отправлен в чат {chat_id}.')
 
     except Exception as e:
         logging.error(f'Ошибка при отправке списка следующих дней рождений: {e}')
+        print(e)
         bot.send_message(chat_id, "Произошла ошибка при получении данных о днях рождения.")
 
 
@@ -367,24 +374,21 @@ def scheduler():
         logging.info('Запуск планировщика...')
         # Получаем текущее время и определяем ближайший target
         now = datetime.now()
-        print(now)
         logging.info(f"Текущее время: {now}")
         # Список будущих target на сегодня
         future_targets = [
             # Создаем datetime объект для каждого target времени
-            # напимер, если сейчас 14:00, то target будет 15:30
+            # например, если сейчас 14:00, то target будет 15:30
             now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0)
             for t in times
             if now.replace(hour=int(t[:2]), minute=int(t[3:]), second=0, microsecond=0) > now
         ]
-        print(f"Будущие target на сегодня: {future_targets}")
         if future_targets:
             target = min(future_targets)
         else:
             # Все target на сегодня прошли, берем самое раннее на завтра
             t_earliest = times[0]
             target = (now + timedelta(days=1)).replace(hour=int(t_earliest[:2]), minute=int(t_earliest[3:]), second=0, microsecond=0)
-            print(target)
         wait_seconds = (target - now).total_seconds()
         logging.info(f'Ожидание до следующей отправки: {wait_seconds/60:.1f} минут.')
         time.sleep(wait_seconds)
