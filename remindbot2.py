@@ -89,7 +89,8 @@ def get_next_5_birthdays(all_employees=False):
             # Получаем всех сотрудников, независимо от подразделения
             cur.execute("""
                 --Следующие 5 дней рождений всех сотрудников
-                SELECT DISTINCT ON (fullname) fullname, birthday
+                SELECT DISTINCT ON (fullname) 
+                substring(fullname from '^[^ ]+ [^ ]+') as fullname, birthday
                 FROM nsi_data.dict_portal_ac_employees_tb_form
                 where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
                 ORDER BY fullname
@@ -97,7 +98,7 @@ def get_next_5_birthdays(all_employees=False):
         else:
             cur.execute("""
                 --Следующие 5 дней рождений сотрудников
-                SELECT DISTINCT ON (fullname) fullname, birthday
+                SELECT DISTINCT ON (fullname) substring(fullname from '^[^ ]+ [^ ]+') as fullname, birthday
                 FROM nsi_data.dict_portal_ac_employees_tb_form
                 where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
                 and department ilike any(array['%перационная%','%роект%','%мультимед%','%руковод%'])
@@ -163,7 +164,7 @@ def get_vacations(all_employees=False):
         if all_employees:
             # Получаем отпуска всех сотрудников
             cur.execute("""
-                SELECT DISTINCT ON (fullname,vac_date_start) fullname, vac_date_start, vac_date_end
+                SELECT DISTINCT ON (fullname,vac_date_start) substring(fullname from '^[^ ]+ [^ ]+') as fullname, vac_date_start, vac_date_end
                 FROM nsi_data.dict_portal_ac_employees_tb_form
                 WHERE status is true 
                 AND "current_timestamp" = (SELECT "current_timestamp" cs FROM nsi_data.dict_portal_ac_employees_tb_form ORDER BY cs DESC LIMIT 1)
@@ -174,7 +175,7 @@ def get_vacations(all_employees=False):
         else:
             # Получаем отпуска сотрудников определенных подразделений
             cur.execute("""
-                SELECT DISTINCT ON (fullname,vac_date_start) fullname, vac_date_start, vac_date_end
+                SELECT DISTINCT ON (fullname,vac_date_start) substring(fullname from '^[^ ]+ [^ ]+') as fullname, vac_date_start, vac_date_end
                 FROM nsi_data.dict_portal_ac_employees_tb_form
                 WHERE status is true 
                 AND "current_timestamp" = (SELECT "current_timestamp" cs FROM nsi_data.dict_portal_ac_employees_tb_form ORDER BY cs DESC LIMIT 1)
@@ -407,7 +408,7 @@ def get_birthdays(all_employees=False):
             # Получаем всех сотрудников, независимо от статуса
             cur.execute("""
                 --Дни рождения всех сотрудников
-                SELECT DISTINCT ON (fullname) fullname, birthday
+                SELECT DISTINCT ON (fullname) substring(fullname from '^[^ ]+ [^ ]+') as fullname, birthday
                 FROM nsi_data.dict_portal_ac_employees_tb_form
                 where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
                 ORDER BY fullname
@@ -415,7 +416,7 @@ def get_birthdays(all_employees=False):
         else:
             cur.execute("""
                 --Дни рождения сотрудников
-                SELECT DISTINCT ON (fullname) fullname, birthday
+                SELECT DISTINCT ON (fullname) substring(fullname from '^[^ ]+ [^ ]+') as fullname, birthday
                 FROM nsi_data.dict_portal_ac_employees_tb_form
                 where status is true and "current_timestamp" = (select "current_timestamp" cs from nsi_data.dict_portal_ac_employees_tb_form order by cs desc limit 1)
                 and department ilike any(array['%перационная%','%роект%','%мультимед%','%руковод%'])
